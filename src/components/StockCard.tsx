@@ -35,7 +35,7 @@ export default function StockCard({ stock, onExecute }: StockCardProps) {
             />
 
             {/* Header with Ticker and Score */}
-            <div style={{ marginBottom: 'var(--spacing-md)', paddingTop: 'var(--spacing-xs)' }} ​>
+            <div style={{ marginBottom: 'var(--spacing-md)', paddingTop: 'var(--spacing-xs)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)' }}>
                     <div>
                         <h3
@@ -66,7 +66,7 @@ export default function StockCard({ stock, onExecute }: StockCardProps) {
                     {/* Total Score Badge */}
                     <div
                         style={{
-                            padding: 'var(--spacing-xs) var(--spacing- sm)',
+                            padding: 'var(--spacing-xs) var(--spacing-sm)',
                             background: 'var(--accent-cyan)',
                             borderRadius: 'var(--radius-md)',
                             boxShadow: 'var(--shadow-glow-cyan)',
