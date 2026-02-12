@@ -1,0 +1,48 @@
+{
+    "name": "migitrader",
+    "version": "1.0.0",
+    "description": "High-performance PWA for NSE Kenya trading insights",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "type-check": "tsc --noEmit",
+        "test": "jest",
+        "test:watch": "jest --watch"
+    },
+    "dependencies": {
+        "next": "^14.1.0",
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "redis": "^4.6.12",
+        "typescript": "^5.3.3"
+    },
+    "devDependencies": {
+        "@types/node": "^20.11.5",
+        "@types/react": "^18.2.48",
+        "@types/react-dom": "^18.2.18",
+        "eslint": "^8.56.0",
+        "eslint-config-next": "^14.1.0",
+        "jest": "^29.7.0",
+        "@testing-library/react": "^14.1.2",
+        "@testing-library/jest-dom": "^6.2.0"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
+    },
+    "keywords": [
+        "nse",
+        "kenya",
+        "stocks",
+        "trading",
+        "pwa",
+        "fintech",
+        "m-pesa",
+        "ziidi"
+    ],
+    "author": "MigiTrader Team",
+    "license": "MIT"
+}
