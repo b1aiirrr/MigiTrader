@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import StockCard from './StockCard';
-import { getDailyInsights } from '../lib/getDailyInsights';
-import type { DailyInsights, APIConfig, RedisConfig } from '../lib/types';
+import type { DailyInsights } from '../lib/types';
 
 export default function DailyAlphaDashboard() {
     const [insights, setInsights] = useState<DailyInsights | null>(null);
@@ -18,21 +17,14 @@ export default function DailyAlphaDashboard() {
             setLoading(true);
             setError(null);
 
-            // Configuration (use environment variables in production)
-            const apiConfig: APIConfig = {
-                baseUrl: process.env.NEXT_PUBLIC_NSE_API_URL || '',
-                apiKey: process.env.NEXT_PUBLIC_NSE_API_KEY || '',
-                timeout: 10000,
-                retryAttempts: 3,
-            };
+            // Fetch from server-side API route (avoids Redis in browser)
+            const response = await fetch('/api/insights');
 
-            const redisConfig: RedisConfig = {
-                url: process.env.REDIS_URL || '',
-                password: process.env.REDIS_PASSWORD,
-                ttl: 900,
-            };
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
 
-            const data = await getDailyInsights(apiConfig, redisConfig);
+            const data: DailyInsights = await response.json();
             setInsights(data);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load insights');
