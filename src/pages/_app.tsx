@@ -12,7 +12,8 @@ export default function App({ Component, pageProps }: AppProps) {
                 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
                 <meta name="apple-mobile-web-app-title" content="MigiTrader" />
                 <link rel="manifest" href="/manifest.json" />
-                <link rel="icon" href="/favicon.ico" />
+                <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+                <link rel="icon" type="image/x-icon" href="/favicon.ico" />
                 <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
             </Head>
             <Component {...pageProps} />
