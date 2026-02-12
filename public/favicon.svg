@@ -1,0 +1,11 @@
+<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue background -->
+  <rect width="64" height="64" fill="#0070f3" rx="8"/>
+  
+  <!-- White M -->
+  <text x="32" y="48" font-family="Arial, sans-serif" font-size="44" font-weight="bold" 
+        fill="white" text-anchor="middle">M</text>
+  
+  <!-- Small green arrow -->
+  <path d="M 50 14 L 56 8 L 62 14 L 59 14 L 59 20 L 53 20 L 53 14 Z" fill="#10b981"/>
+</svg>
