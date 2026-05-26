@@ -32,7 +32,7 @@ export default function Home() {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="MigiTrader" />
         
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="manifest" href="/manifest.json" />
       </Head>
 
@@ -62,23 +62,17 @@ export default function Home() {
           >
             {/* Brand Logo & Title */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div 
+              <img 
+                src="/images/logo.png" 
+                alt="MigiTrader Logo" 
                 style={{ 
                   width: '32px', 
                   height: '32px', 
                   borderRadius: 'var(--radius-sm)', 
-                  background: 'var(--chrome-gradient)', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  fontWeight: '900',
-                  color: 'white',
-                  fontSize: '1.25rem',
-                  boxShadow: 'var(--shadow-glow-cyan)'
-                }}
-              >
-                M
-              </div>
+                  boxShadow: 'var(--shadow-glow-cyan)',
+                  objectFit: 'cover'
+                }} 
+              />
               <div>
                 <span 
                   style={{ 
