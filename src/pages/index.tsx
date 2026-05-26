@@ -33,6 +33,7 @@ export default function Home() {
         <meta name="apple-mobile-web-app-title" content="MigiTrader" />
         
         <link rel="icon" type="image/png" href="/favicon.png" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="manifest" href="/manifest.json" />
       </Head>
 

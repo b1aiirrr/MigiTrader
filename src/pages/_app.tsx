@@ -25,6 +25,7 @@ export default function App({ Component, pageProps }: AppProps) {
                 <meta name="apple-mobile-web-app-title" content="MigiTrader" />
                 <link rel="manifest" href="/manifest.json" />
                 <link rel="icon" type="image/png" href="/favicon.png" />
+                <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
                 <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
             </Head>
             <Component {...pageProps} />
