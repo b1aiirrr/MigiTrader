@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { AssetSignal, SignalsResponse } from '../pages/api/signals';
+import type { AssetSignal, SignalsResponse } from '../pages/api/indicators';
 
 export default function Dashboard() {
   const [data, setData] = useState<SignalsResponse | null>(null);
@@ -17,7 +17,7 @@ export default function Dashboard() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/signals');
+      const res = await fetch('/api/indicators');
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`);
       }
