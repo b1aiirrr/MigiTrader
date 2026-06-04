@@ -12,6 +12,8 @@ export interface AssetSignal {
   signalStatus: 'BUY' | 'SELL' | 'HOLD';
   timestamp: string;
   reasoning: string;
+  assetType: 'EQUITY' | 'IFB';
+  portalUrl: string;
 }
 
 export interface SignalsResponse {
@@ -23,6 +25,25 @@ export interface SignalsResponse {
   sellCount: number;
   signals: AssetSignal[];
 }
+
+interface BrokerEntry {
+  readonly clientCode?: string;
+  readonly accountId?: string;
+  readonly portalUrl: string;
+}
+
+type BrokerKey = 'STERLING_CAPITAL' | 'DHOW_CSD';
+
+const BROKER_REGISTRY: Readonly<Record<BrokerKey, BrokerEntry>> = {
+  STERLING_CAPITAL: {
+    clientCode: '75653',
+    portalUrl: 'https://sterling.kenyaonlinetrading.com',
+  },
+  DHOW_CSD: {
+    accountId: '393076-0004',
+    portalUrl: 'https://dhowcsd.centralbank.go.ke',
+  },
+} as const;
 
 // Deterministic pseudo-random number generator based on seed (for consistent daily data)
 function seedRandom(seedStr: string): () => number {
@@ -54,7 +75,8 @@ const STOCKS_POOL = [
   { ticker: 'IMHC', name: 'I&M Holdings', basePrice: 42.50, volatility: 0.015, isBullish: false },
   { ticker: 'JBIC', name: 'Jubilee Holdings', basePrice: 280.00, volatility: 0.01, isBullish: true },
   { ticker: 'SCBK', name: 'Standard Chartered Bank', basePrice: 168.00, volatility: 0.012, isBullish: false },
-  { ticker: 'DTB', name: 'Diamond Trust Bank', basePrice: 82.50, volatility: 0.02, isBullish: true }
+  { ticker: 'DTK', name: 'Diamond Trust Bank Kenya Ltd', basePrice: 143.00, volatility: 0.02, isBullish: true },
+  { ticker: 'IFB1/2026/10Yr', name: 'CBK Infrastructure Bond IFB1/2026/10Yr', basePrice: 18.25, volatility: 0.002, isBullish: true }
 ];
 
 export default async function handler(
@@ -151,6 +173,17 @@ export default async function handler(
         reasoning = 'Bearish pressure, trading near key support zones.';
       }
       
+      const assetType = stock.ticker.startsWith('IFB') ? ('IFB' as const) : ('EQUITY' as const);
+      const portalUrl = assetType === 'EQUITY'
+        ? BROKER_REGISTRY.STERLING_CAPITAL.portalUrl
+        : BROKER_REGISTRY.DHOW_CSD.portalUrl;
+
+      // Customize reasoning for simulated bonds
+      if (assetType === 'IFB') {
+        signalStatus = 'BUY';
+        reasoning = `High-yield sovereign infrastructure bond. Attractive tax-exempt risk-adjusted returns (Yield: ${latestPrice}%).`;
+      }
+
       return {
         ticker: stock.ticker,
         name: stock.name,
@@ -161,7 +194,9 @@ export default async function handler(
         volume,
         signalStatus,
         timestamp: new Date().toISOString(),
-        reasoning
+        reasoning,
+        assetType,
+        portalUrl
       };
     });
     

@@ -62,3 +62,43 @@ export interface RedisConfig {
   password?: string;
   ttl: number; // Time to live in seconds
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live Market Data Types — MigiTrader V2
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A ticker in the equity watchlist with its Yahoo Finance symbol mapping. */
+export interface EquityWatchlistEntry {
+  /** Local NSE ticker symbol, e.g. 'SCOM' */
+  readonly ticker: string;
+  /** Full company name */
+  readonly name: string;
+  /** Yahoo Finance symbol, e.g. 'SCOM.NR' */
+  readonly yahooSymbol: string;
+}
+
+/** Configuration for a CBK infrastructure bond on the watchlist. */
+export interface BondConfig {
+  /** Bond issue name, e.g. 'CBK Infrastructure Bond IFB1/2026/10Yr' */
+  readonly issueName: string;
+  /** Bond ticker/reference, e.g. 'IFB1/2026/10Yr' */
+  readonly ticker: string;
+  /** Annual coupon rate as a percentage */
+  readonly couponRate: number;
+  /** Maturity date in YYYY-MM-DD format */
+  readonly maturityDate: string;
+  /** Yield to maturity as a percentage (set at auction) */
+  readonly yield: number;
+  /** Issue/auction date in YYYY-MM-DD format */
+  readonly issueDate: string;
+  /** Whether this bond should trigger alerts */
+  readonly triggerAlert: boolean;
+}
+
+/** Wrapper for live data fetch results with graceful error handling. */
+export interface DataFetchResult<T> {
+  readonly success: boolean;
+  readonly data: T | null;
+  readonly error?: string;
+  readonly timestamp: string;
+}

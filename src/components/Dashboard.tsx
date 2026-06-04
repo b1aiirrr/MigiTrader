@@ -37,9 +37,9 @@ export default function Dashboard() {
     setRefreshing(false);
   };
 
-  const handleTrade = (ticker: string) => {
-    // Open AIB-AXYS portal in new tab
-    window.open('https://aibaxys.kenyaonline.co.ke', '_blank');
+  const handleTrade = (portalUrl: string) => {
+    // Open target execution broker or settlement portal
+    window.open(portalUrl, '_blank');
   };
 
   // Filter signals based on search query and status selector
@@ -329,10 +329,14 @@ export default function Dashboard() {
                       {/* Price */}
                       <td style={{ padding: 'var(--spacing-md) var(--spacing-sm)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: '700', fontSize: 'var(--font-size-base)' }}>KES {signal.currentPrice.toFixed(2)}</span>
-                          <span style={{ fontSize: 'var(--font-size-xs)', color: signal.priceChangePercent >= 0 ? 'var(--accent-emerald)' : 'var(--accent-red)', fontWeight: '700' }}>
-                            {signal.priceChangePercent >= 0 ? '+' : ''}{signal.priceChangePercent}%
+                          <span style={{ fontWeight: '700', fontSize: 'var(--font-size-base)' }}>
+                            {signal.assetType === 'IFB' ? `${signal.currentPrice.toFixed(2)}% Yield` : `KES ${signal.currentPrice.toFixed(2)}`}
                           </span>
+                          {signal.assetType !== 'IFB' && (
+                            <span style={{ fontSize: 'var(--font-size-xs)', color: signal.priceChangePercent >= 0 ? 'var(--accent-emerald)' : 'var(--accent-red)', fontWeight: '700' }}>
+                              {signal.priceChangePercent >= 0 ? '+' : ''}{signal.priceChangePercent}%
+                            </span>
+                          )}
                         </div>
                       </td>
                       
@@ -400,7 +404,7 @@ export default function Dashboard() {
                       {/* Interactive Deep Link Button */}
                       <td style={{ padding: 'var(--spacing-md) var(--spacing-sm)', textAlign: 'center' }}>
                         <button
-                          onClick={() => handleTrade(signal.ticker)}
+                          onClick={() => handleTrade(signal.portalUrl)}
                           className="glass-metallic"
                           style={{
                             padding: '8px 12px',

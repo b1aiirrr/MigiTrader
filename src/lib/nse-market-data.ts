@@ -1,0 +1,231 @@
+import type {
+  NSEStock,
+  EquityWatchlistEntry,
+  BondConfig,
+  DataFetchResult,
+} from './types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. EQUITY WATCHLIST — NSE tickers mapped to their afx.kwayisi.org pages
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Active equity watchlist. Add/remove tickers here to change what the
+ * signal pipeline monitors.
+ *
+ * This can be overridden at runtime via the EQUITY_WATCHLIST env var
+ * (comma-separated NSE tickers, e.g. "SCOM,EQTY,KCB,DTK").
+ */
+const DEFAULT_EQUITY_WATCHLIST: readonly EquityWatchlistEntry[] = [
+  { ticker: 'SCOM',  name: 'Safaricom PLC',                yahooSymbol: 'scom' },
+  { ticker: 'EQTY',  name: 'Equity Group Holdings PLC',    yahooSymbol: 'eqty' },
+  { ticker: 'KCB',   name: 'KCB Group PLC',                yahooSymbol: 'kcb'  },
+  { ticker: 'DTK',   name: 'Diamond Trust Bank Kenya Ltd',  yahooSymbol: 'dtk'  },
+] as const;
+
+/** Source URL for live NSE price list. */
+const AFX_NSE_URL = 'https://afx.kwayisi.org/nseke/';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2. BOND WATCHLIST — CBK Infrastructure Bonds (updated at each auction)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Active IFB watchlist. Bond data is auction-based (not real-time) —
+ * update these entries when new bonds are issued or auctioned by CBK.
+ */
+const BOND_WATCHLIST: readonly BondConfig[] = [
+  {
+    issueName: 'CBK Infrastructure Bond IFB1/2026/10Yr',
+    ticker: 'IFB1/2026/10Yr',
+    couponRate: 17.93,
+    maturityDate: '2036-06-15',
+    yield: 18.25,
+    issueDate: '2026-05-20',
+    triggerAlert: true,
+  },
+] as const;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. AFX.KWAYISI.ORG HTML PARSER — Extracts price data from the NSE page
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Raw parsed row from the afx.kwayisi.org price table.
+ */
+interface ParsedRow {
+  ticker: string;
+  volume: number;
+  price: number;
+  change: number;
+}
+
+/**
+ * Parses the afx.kwayisi.org HTML to extract ticker, volume, price, change
+ * from the main price table.
+ *
+ * The table structure is:
+ *   <table> → <tbody> → <tr> → <td>TICKER</td><td>Name</td><td>Volume</td><td>Price</td><td>Change</td>
+ *
+ * We use regex parsing since we're in a Node.js serverless context
+ * (no DOM available) and don't want heavy dependencies like cheerio.
+ */
+function parseAfxHtml(html: string): ParsedRow[] {
+  const rows: ParsedRow[] = [];
+
+  // Split by <tr to handle rows. The HTML may omit closing tags like </td> or </tr>.
+  const trs = html.split(/<tr/i);
+
+  for (const tr of trs) {
+    // Split the row by <td
+    const tds = tr.split(/<td/i);
+    // A valid stock row has at least 5 <td> cells (split length >= 6)
+    if (tds.length < 6) continue;
+
+    // Extract ticker from 1st td (tds[1])
+    // e.g. "<td><a href=.../scom.html ...>SCOM</a>"
+    const tickerMatch = tds[1].match(/>\s*<a[^>]*>\s*([A-Z0-9-]+)\s*<\/a>/i);
+    if (!tickerMatch) continue;
+    const ticker = tickerMatch[1].toUpperCase();
+
+    // Helper to get text inside <td> stripping outer tags/attributes
+    const getCleanText = (tdText: string) => {
+      const textOnly = tdText.replace(/^[^>]*>/, ''); // remove everything before first '>'
+      return textOnly.replace(/<[^>]*>/g, '').trim();  // strip nested tags and trim
+    };
+
+    const volumeStr = getCleanText(tds[3]).replace(/,/g, '');
+    const priceStr = getCleanText(tds[4]).replace(/,/g, '');
+    const changeStr = getCleanText(tds[5]).replace(/,/g, '');
+
+    const price = parseFloat(priceStr);
+    const volume = volumeStr ? parseInt(volumeStr, 10) : 0;
+    const change = changeStr ? parseFloat(changeStr) : 0;
+
+    if (!isNaN(price) && price > 0) {
+      rows.push({ ticker, volume, price, change });
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Resolves the effective equity watchlist.
+ * If `EQUITY_WATCHLIST` env var is set (comma-separated tickers),
+ * it filters the default list to only those tickers.
+ */
+function getEffectiveWatchlist(): EquityWatchlistEntry[] {
+  const envList = process.env.EQUITY_WATCHLIST;
+  if (!envList) return [...DEFAULT_EQUITY_WATCHLIST];
+
+  const requestedTickers = new Set(
+    envList.split(',').map((t) => t.trim().toUpperCase())
+  );
+
+  const filtered = DEFAULT_EQUITY_WATCHLIST.filter((entry) =>
+    requestedTickers.has(entry.ticker)
+  );
+
+  if (filtered.length === 0) {
+    console.warn(
+      `⚠️ EQUITY_WATCHLIST="${envList}" matched no known tickers. Falling back to full default watchlist.`
+    );
+    return [...DEFAULT_EQUITY_WATCHLIST];
+  }
+
+  return filtered;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. PUBLIC API — Live data fetchers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fetches live equity data from afx.kwayisi.org for all tickers in the
+ * effective watchlist. Returns an array of NSEStock objects.
+ *
+ * On failure, returns null with error details — never throws.
+ */
+export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>> {
+  const watchlist = getEffectiveWatchlist();
+  const watchlistTickers = new Set(watchlist.map((e) => e.ticker));
+
+  console.log(`📊 Fetching live NSE prices from afx.kwayisi.org for: ${[...watchlistTickers].join(', ')}`);
+
+  try {
+    const response = await fetch(AFX_NSE_URL, {
+      headers: {
+        'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
+        'Accept': 'text/html',
+      },
+      signal: AbortSignal.timeout(15_000), // 15s timeout
+    });
+
+    if (!response.ok) {
+      throw new Error(`afx.kwayisi.org returned status ${response.status}`);
+    }
+
+    const html = await response.text();
+    const allRows = parseAfxHtml(html);
+
+    console.log(`📋 Parsed ${allRows.length} total tickers from NSE price list`);
+
+    // Filter to only our watchlist tickers
+    const matchedRows = allRows.filter((r) => watchlistTickers.has(r.ticker));
+
+    const stocks: NSEStock[] = matchedRows.map((row) => {
+      const entry = watchlist.find((w) => w.ticker === row.ticker)!;
+      const previousClose = row.price - row.change;
+
+      return {
+        ticker: entry.ticker,
+        name: entry.name,
+        currentPrice: row.price,
+        previousClose: previousClose > 0 ? previousClose : row.price,
+        volume: row.volume,
+        averageVolume: row.volume, // afx doesn't provide avg volume — use current as baseline
+        marketCap: 0, // Not available from this source
+        high52Week: row.price,
+        low52Week: row.price,
+        movingAverage20Day: previousClose > 0 ? previousClose : row.price, // Approximate with prev close
+      };
+    });
+
+    console.log(`✅ Matched ${stocks.length}/${watchlist.length} watchlist tickers with live prices`);
+
+    return {
+      success: stocks.length > 0,
+      data: stocks,
+      timestamp: new Date().toISOString(),
+      ...(stocks.length < watchlist.length && {
+        error: `Partial data: ${stocks.length}/${watchlist.length} tickers resolved`,
+      }),
+    };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown fetch error';
+    console.error(`❌ NSE data fetch failed: ${message}`);
+
+    return {
+      success: false,
+      data: null,
+      error: message,
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Returns the active infrastructure bond watchlist.
+ * Bonds are static auction-based instruments — no live fetch needed.
+ */
+export function getActiveBonds(): readonly BondConfig[] {
+  return BOND_WATCHLIST;
+}
+
+/**
+ * Returns the full effective equity watchlist (for reference/display).
+ */
+export function getEquityWatchlist(): EquityWatchlistEntry[] {
+  return getEffectiveWatchlist();
+}
