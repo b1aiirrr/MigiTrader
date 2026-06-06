@@ -14,6 +14,8 @@ export interface AssetSignal {
   reasoning: string;
   assetType: 'EQUITY' | 'IFB';
   portalUrl: string;
+  peRatio?: number;
+  eps?: number;
 }
 
 export interface SignalsResponse {
@@ -184,6 +186,26 @@ export default async function handler(
         reasoning = `High-yield sovereign infrastructure bond. Attractive tax-exempt risk-adjusted returns (Yield: ${latestPrice}%).`;
       }
 
+      let peRatio: number | undefined;
+      let eps: number | undefined;
+
+      if (assetType === 'EQUITY') {
+        if (stock.ticker === 'SCOM') {
+          peRatio = 13.31;
+        } else if (stock.ticker === 'EQTY') {
+          peRatio = 3.86;
+        } else if (stock.ticker === 'KCB') {
+          peRatio = 3.48;
+        } else if (stock.ticker === 'DTK') {
+          peRatio = 3.89;
+        } else {
+          // Generate deterministic mock P/E ratio based on ticker seed
+          const peSeed = seedRandom(`${stock.ticker}-pe`);
+          peRatio = parseFloat((3 + peSeed() * 12).toFixed(2));
+        }
+        eps = parseFloat((latestPrice / peRatio).toFixed(4));
+      }
+
       return {
         ticker: stock.ticker,
         name: stock.name,
@@ -196,7 +218,9 @@ export default async function handler(
         timestamp: new Date().toISOString(),
         reasoning,
         assetType,
-        portalUrl
+        portalUrl,
+        peRatio,
+        eps
       };
     });
     

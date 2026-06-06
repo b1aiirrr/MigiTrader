@@ -13,6 +13,8 @@ export interface NSEStock {
   high52Week: number;
   low52Week: number;
   movingAverage20Day: number;
+  peRatio?: number;
+  eps?: number;
 }
 
 export interface DividendAnnouncement {

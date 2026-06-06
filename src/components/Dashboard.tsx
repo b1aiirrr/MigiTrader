@@ -285,6 +285,7 @@ export default function Dashboard() {
               <tr style={{ borderBottom: '1px solid var(--glass-border)' }}>
                 <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asset</th>
                 <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price</th>
+                <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>P/E Ratio</th>
                 <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>RSI (14-Day)</th>
                 <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Moving Average (20-Day)</th>
                 <th style={{ padding: 'var(--spacing-md) var(--spacing-sm)', color: 'var(--text-secondary)', fontWeight: '800', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Signal Recommendation</th>
@@ -335,6 +336,20 @@ export default function Dashboard() {
                           {signal.assetType !== 'IFB' && (
                             <span style={{ fontSize: 'var(--font-size-xs)', color: signal.priceChangePercent >= 0 ? 'var(--accent-emerald)' : 'var(--accent-red)', fontWeight: '700' }}>
                               {signal.priceChangePercent >= 0 ? '+' : ''}{signal.priceChangePercent}%
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      
+                      {/* P/E Ratio */}
+                      <td style={{ padding: 'var(--spacing-md) var(--spacing-sm)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: '700', color: 'var(--text-primary)', fontSize: 'var(--font-size-base)' }}>
+                            {signal.peRatio !== undefined ? signal.peRatio.toFixed(2) : '—'}
+                          </span>
+                          {signal.eps !== undefined && (
+                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>
+                              EPS: {signal.eps.toFixed(2)}
                             </span>
                           )}
                         </div>

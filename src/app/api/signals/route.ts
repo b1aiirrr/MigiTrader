@@ -53,6 +53,8 @@ export interface AssetSignal {
   readonly triggerAlert: boolean;
   /** Strategy engine score (0–100) for equities, undefined for bonds */
   readonly score?: number;
+  readonly peRatio?: number;
+  readonly eps?: number;
 }
 
 /**
@@ -276,6 +278,8 @@ function buildEquitySignals(stocks: NSEStock[]): AssetSignal[] {
       portalUrl: resolvePortalUrl('EQUITY'),
       triggerAlert: shouldAlert,
       score: momentumScore,
+      peRatio: stock.peRatio,
+      eps: stock.eps,
     };
   });
 }
@@ -347,6 +351,8 @@ export async function GET(): Promise<NextResponse> {
         score: s.score,
         portalUrl: s.portalUrl,
         triggerAlert: s.triggerAlert,
+        peRatio: s.peRatio,
+        eps: s.eps,
       })),
       dispatchedTickers,
       failedTickers: failedTickers.length > 0 ? failedTickers : undefined,

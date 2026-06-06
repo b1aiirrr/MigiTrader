@@ -174,9 +174,42 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
     // Filter to only our watchlist tickers
     const matchedRows = allRows.filter((r) => watchlistTickers.has(r.ticker));
 
+    // Fetch detail pages in parallel to scrape P/E and EPS
+    const detailsMap = new Map<string, { pe?: number; eps?: number }>();
+    await Promise.all(
+      matchedRows.map(async (row) => {
+        const entry = watchlist.find((w) => w.ticker === row.ticker)!;
+        const detailUrl = `https://afx.kwayisi.org/nse/${entry.yahooSymbol}.html`;
+
+        try {
+          const detailRes = await fetch(detailUrl, {
+            headers: {
+              'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
+              'Accept': 'text/html',
+            },
+            signal: AbortSignal.timeout(10_000), // 10s timeout
+          });
+
+          if (detailRes.ok) {
+            const detailHtml = await detailRes.text();
+            const peMatch = detailHtml.match(/Price\/Earning Ratio<td[^>]*>([\d,.-]+)/i);
+            const epsMatch = detailHtml.match(/Earnings Per Share<td[^>]*>([\d,.-]+)/i);
+
+            const pe = peMatch && !isNaN(parseFloat(peMatch[1])) ? parseFloat(peMatch[1]) : undefined;
+            const eps = epsMatch && !isNaN(parseFloat(epsMatch[1])) ? parseFloat(epsMatch[1]) : undefined;
+
+            detailsMap.set(row.ticker, { pe, eps });
+          }
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch detail page for ${row.ticker}:`, err instanceof Error ? err.message : err);
+        }
+      })
+    );
+
     const stocks: NSEStock[] = matchedRows.map((row) => {
       const entry = watchlist.find((w) => w.ticker === row.ticker)!;
       const previousClose = row.price - row.change;
+      const details = detailsMap.get(row.ticker);
 
       return {
         ticker: entry.ticker,
@@ -189,6 +222,8 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
         high52Week: row.price,
         low52Week: row.price,
         movingAverage20Day: previousClose > 0 ? previousClose : row.price, // Approximate with prev close
+        peRatio: details?.pe,
+        eps: details?.eps,
       };
     });
 
