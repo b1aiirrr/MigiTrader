@@ -2,9 +2,10 @@ import Head from 'next/head';
 import { useState } from 'react';
 import DailyAlphaDashboard from '../components/DailyAlphaDashboard';
 import Dashboard from '../components/Dashboard';
+import MmfTracker from '../components/MmfTracker';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'ALPHA' | 'SIGNALS'>('SIGNALS');
+  const [activeTab, setActiveTab] = useState<'ALPHA' | 'SIGNALS' | 'MMF'>('SIGNALS');
 
   return (
     <>
@@ -147,6 +148,27 @@ export default function Home() {
               >
                 🎯 Alpha Picks
               </button>
+              <button
+                onClick={() => setActiveTab('MMF')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-fast)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: activeTab === 'MMF' ? 'white' : 'var(--text-secondary)',
+                  background: activeTab === 'MMF' ? 'rgba(255,255,255,0.08)' : 'transparent',
+                  boxShadow: activeTab === 'MMF' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+                  borderBottom: activeTab === 'MMF' ? '2px solid var(--accent-cyan)' : 'none'
+                }}
+              >
+                🏛️ Etica MMF
+              </button>
             </div>
           </div>
         </div>
@@ -163,7 +185,13 @@ export default function Home() {
             zIndex: 1
           }}
         >
-          {activeTab === 'SIGNALS' ? <Dashboard /> : <DailyAlphaDashboard />}
+          {activeTab === 'SIGNALS' ? (
+            <Dashboard />
+          ) : activeTab === 'ALPHA' ? (
+            <DailyAlphaDashboard />
+          ) : (
+            <MmfTracker />
+          )}
         </main>
       </div>
     </>
