@@ -37,7 +37,7 @@ type BrokerKey = 'STERLING_CAPITAL' | 'DHOW_CSD';
 const BROKER_REGISTRY: Readonly<Record<BrokerKey, BrokerEntry>> = {
   STERLING_CAPITAL: {
     clientCode: '75653',
-    portalUrl: 'https://sterling.kenyaonlinetrading.com',
+    portalUrl: 'https://sterling.kenyaonlinetrading.com/ActiveTrader/',
   },
   DHOW_CSD: {
     accountId: '393076-0004',

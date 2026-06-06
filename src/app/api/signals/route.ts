@@ -28,7 +28,7 @@ type BrokerKey = 'STERLING_CAPITAL' | 'DHOW_CSD';
 const BROKER_REGISTRY: Readonly<Record<BrokerKey, BrokerEntry>> = {
   STERLING_CAPITAL: {
     clientCode: '75653',
-    portalUrl: 'https://sterling.kenyaonlinetrading.com',
+    portalUrl: 'https://sterling.kenyaonlinetrading.com/ActiveTrader/',
   },
   DHOW_CSD: {
     accountId: '393076-0004',
@@ -341,9 +341,11 @@ export async function GET(): Promise<NextResponse> {
       scoreThreshold: SCORE_THRESHOLD,
       signals: allSignals.map((s) => ({
         ticker: s.ticker,
+        assetName: s.assetName,
         assetType: s.assetType,
         currentValue: s.currentValue,
         score: s.score,
+        portalUrl: s.portalUrl,
         triggerAlert: s.triggerAlert,
       })),
       dispatchedTickers,
