@@ -10,7 +10,7 @@ import type {
  */
 
 // Blue-chip tickers to prioritize for dividend strategy
-const BLUE_CHIP_TICKERS = ['SCOM', 'EABL', 'IMHC', 'KCB', 'EQTY'];
+const BLUE_CHIP_TICKERS = ['SCOM', 'EABL', 'IMH', 'KCB', 'EQTY'];
 
 /**
  * Calculate momentum score based on volume spike and price movement

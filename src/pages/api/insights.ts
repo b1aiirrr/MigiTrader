@@ -68,7 +68,7 @@ const MOCK_INSIGHTS: DailyInsights = {
 
         // BANKING SECTOR
         {
-            ticker: 'IMHC',
+            ticker: 'IMH',
             name: 'I&M Holdings',
             currentPrice: 42.50,
             entryPoint: 41.80,
@@ -187,7 +187,7 @@ const MOCK_INSIGHTS: DailyInsights = {
             volumeSpike: 32.1,
         },
         {
-            ticker: 'BATK',
+            ticker: 'BAT',
             name: 'BAT Kenya',
             currentPrice: 420.00,
             entryPoint: 415.00,
@@ -349,7 +349,7 @@ const MOCK_INSIGHTS: DailyInsights = {
             volumeSpike: 7.9,
         },
         {
-            ticker: 'JBIC',
+            ticker: 'JUB',
             name: 'Jubilee Holdings',
             currentPrice: 280.00,
             entryPoint: 275.00,

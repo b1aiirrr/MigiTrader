@@ -17,10 +17,21 @@ import type {
  * (comma-separated NSE tickers, e.g. "SCOM,EQTY,KCB,DTK").
  */
 const DEFAULT_EQUITY_WATCHLIST: readonly EquityWatchlistEntry[] = [
-  { ticker: 'SCOM',  name: 'Safaricom PLC',                yahooSymbol: 'scom' },
-  { ticker: 'EQTY',  name: 'Equity Group Holdings PLC',    yahooSymbol: 'eqty' },
-  { ticker: 'KCB',   name: 'KCB Group PLC',                yahooSymbol: 'kcb'  },
-  { ticker: 'DTK',   name: 'Diamond Trust Bank Kenya Ltd',  yahooSymbol: 'dtk'  },
+  { ticker: 'SCOM',   name: 'Safaricom PLC',                yahooSymbol: 'scom' },
+  { ticker: 'EQTY',   name: 'Equity Group Holdings PLC',    yahooSymbol: 'eqty' },
+  { ticker: 'KCB',    name: 'KCB Group PLC',                yahooSymbol: 'kcb'  },
+  { ticker: 'EABL',   name: 'East African Breweries PLC',   yahooSymbol: 'eabl' },
+  { ticker: 'COOP',   name: 'Co-operative Bank of Kenya',   yahooSymbol: 'coop' },
+  { ticker: 'ABSA',   name: 'Absa Bank Kenya PLC',          yahooSymbol: 'absa' },
+  { ticker: 'BAT',    name: 'BAT Kenya PLC',                yahooSymbol: 'bat'  },
+  { ticker: 'BAMB',   name: 'Bamburi Cement PLC',           yahooSymbol: 'bamb' },
+  { ticker: 'KENGEN', name: 'KenGen Co. PLC',               yahooSymbol: 'kengen' },
+  { ticker: 'KPLC',   name: 'Kenya Power & Lighting Co.',   yahooSymbol: 'kplc' },
+  { ticker: 'SASINI', name: 'Sasini PLC',                   yahooSymbol: 'sasini' },
+  { ticker: 'IMH',    name: 'I&M Group PLC',                yahooSymbol: 'imh'  },
+  { ticker: 'JUB',    name: 'Jubilee Holdings Ltd',         yahooSymbol: 'jub'  },
+  { ticker: 'SCBK',   name: 'Standard Chartered Bank PLC',  yahooSymbol: 'scbk' },
+  { ticker: 'DTK',    name: 'Diamond Trust Bank Kenya Ltd', yahooSymbol: 'dtk'  },
 ] as const;
 
 /** Source URL for live NSE price list. */
@@ -111,6 +122,41 @@ function parseAfxHtml(html: string): ParsedRow[] {
 }
 
 /**
+ * Parses the historical table data from a stock's detail page.
+ * Returns an array of historical closing prices and volumes.
+ */
+function parseHistoricalTable(html: string): { close: number; volume: number }[] {
+  const history: { close: number; volume: number }[] = [];
+  const matchHistTable = html.match(/<table[^>]*data-hist[^>]*>([\s\S]*?)<\/table>/i);
+  if (!matchHistTable) return history;
+  
+  const tbodyMatch = matchHistTable[1].match(/<tbody>([\s\S]*?)<\/tbody>/i);
+  const tableBody = tbodyMatch ? tbodyMatch[1] : matchHistTable[1];
+  
+  const rows = tableBody.split(/<tr/i);
+  for (const row of rows) {
+    const tds = row.split(/<td/i);
+    if (tds.length < 4) continue;
+    
+    const getCleanText = (tdText: string) => {
+      const textOnly = tdText.replace(/^[^>]*>/, '');
+      return textOnly.replace(/<[^>]*>/g, '').trim();
+    };
+    
+    const volumeStr = getCleanText(tds[2]).replace(/,/g, '');
+    const closeStr = getCleanText(tds[3]).replace(/,/g, '');
+    
+    const volume = volumeStr ? parseInt(volumeStr, 10) : 0;
+    const close = parseFloat(closeStr);
+    
+    if (!isNaN(close) && close > 0) {
+      history.push({ close, volume });
+    }
+  }
+  return history;
+}
+
+/**
  * Resolves the effective equity watchlist.
  * If `EQUITY_WATCHLIST` env var is set (comma-separated tickers),
  * it filters the default list to only those tickers.
@@ -174,8 +220,8 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
     // Filter to only our watchlist tickers
     const matchedRows = allRows.filter((r) => watchlistTickers.has(r.ticker));
 
-    // Fetch detail pages in parallel to scrape P/E and EPS
-    const detailsMap = new Map<string, { pe?: number; eps?: number }>();
+    // Fetch detail pages in parallel to scrape P/E, EPS, and history
+    const detailsMap = new Map<string, { pe?: number; eps?: number; history?: { close: number; volume: number }[] }>();
     await Promise.all(
       matchedRows.map(async (row) => {
         const entry = watchlist.find((w) => w.ticker === row.ticker)!;
@@ -197,8 +243,9 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
 
             const pe = peMatch && !isNaN(parseFloat(peMatch[1])) ? parseFloat(peMatch[1]) : undefined;
             const eps = epsMatch && !isNaN(parseFloat(epsMatch[1])) ? parseFloat(epsMatch[1]) : undefined;
+            const history = parseHistoricalTable(detailHtml);
 
-            detailsMap.set(row.ticker, { pe, eps });
+            detailsMap.set(row.ticker, { pe, eps, history });
           }
         } catch (err) {
           console.warn(`⚠️ Failed to fetch detail page for ${row.ticker}:`, err instanceof Error ? err.message : err);
@@ -210,6 +257,12 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
       const entry = watchlist.find((w) => w.ticker === row.ticker)!;
       const previousClose = row.price - row.change;
       const details = detailsMap.get(row.ticker);
+      
+      let averageVolume = row.volume;
+      if (details?.history && details.history.length > 0) {
+        const sumVol = details.history.reduce((sum, h) => sum + h.volume, 0);
+        averageVolume = Math.round(sumVol / details.history.length);
+      }
 
       return {
         ticker: entry.ticker,
@@ -217,13 +270,14 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
         currentPrice: row.price,
         previousClose: previousClose > 0 ? previousClose : row.price,
         volume: row.volume,
-        averageVolume: row.volume, // afx doesn't provide avg volume — use current as baseline
+        averageVolume: averageVolume > 0 ? averageVolume : row.volume,
         marketCap: 0, // Not available from this source
         high52Week: row.price,
         low52Week: row.price,
         movingAverage20Day: previousClose > 0 ? previousClose : row.price, // Approximate with prev close
         peRatio: details?.pe,
         eps: details?.eps,
+        history: details?.history,
       };
     });
 

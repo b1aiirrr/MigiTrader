@@ -15,6 +15,7 @@ export interface NSEStock {
   movingAverage20Day: number;
   peRatio?: number;
   eps?: number;
+  history?: { close: number; volume: number }[];
 }
 
 export interface DividendAnnouncement {

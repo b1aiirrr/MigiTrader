@@ -13,11 +13,12 @@ export default function Dashboard() {
     fetchSignals();
   }, []);
 
-  const fetchSignals = async () => {
+  const fetchSignals = async (force = false) => {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/indicators');
+      const url = force ? '/api/indicators?refresh=true' : '/api/indicators';
+      const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`API error: ${res.status}`);
       }
@@ -33,7 +34,7 @@ export default function Dashboard() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await fetchSignals();
+    await fetchSignals(true);
     setRefreshing(false);
   };
 
@@ -89,7 +90,7 @@ export default function Dashboard() {
           <h3 style={{ color: 'var(--accent-red)', fontWeight: '800', marginBottom: 'var(--spacing-xs)' }}>Signal Connection Lost</h3>
           <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)', fontSize: 'var(--font-size-sm)' }}>{error}</p>
           <button
-            onClick={fetchSignals}
+            onClick={() => fetchSignals()}
             className="glass-metallic"
             style={{
               padding: 'var(--spacing-sm) var(--spacing-lg)',

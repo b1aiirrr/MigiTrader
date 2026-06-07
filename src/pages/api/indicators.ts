@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { fetchLiveEquityData, getActiveBonds } from '../../lib/nse-market-data';
 
 // TypeScript interfaces for signals data
 export interface AssetSignal {
@@ -47,7 +48,7 @@ const BROKER_REGISTRY: Readonly<Record<BrokerKey, BrokerEntry>> = {
   },
 } as const;
 
-// Deterministic pseudo-random number generator based on seed (for consistent daily data)
+// Deterministic pseudo-random number generator based on seed (for consistent padded/simulated data)
 function seedRandom(seedStr: string): () => number {
   let h = 1779033703 ^ seedStr.length;
   for (let i = 0; i < seedStr.length; i++) {
@@ -61,25 +62,10 @@ function seedRandom(seedStr: string): () => number {
   };
 }
 
-// Core stock definitions with base stats
-const STOCKS_POOL = [
-  { ticker: 'SCOM', name: 'Safaricom PLC', basePrice: 25.50, volatility: 0.02, isBullish: true },
-  { ticker: 'EQTY', name: 'Equity Group Holdings', basePrice: 55.25, volatility: 0.03, isBullish: true },
-  { ticker: 'KCB', name: 'KCB Group', basePrice: 38.75, volatility: 0.025, isBullish: false },
-  { ticker: 'EABL', name: 'East African Breweries', basePrice: 185.00, volatility: 0.015, isBullish: true },
-  { ticker: 'COOP', name: 'Co-operative Bank', basePrice: 16.40, volatility: 0.012, isBullish: false },
-  { ticker: 'ABSA', name: 'Absa Bank Kenya', basePrice: 14.85, volatility: 0.018, isBullish: true },
-  { ticker: 'BATK', name: 'BAT Kenya', basePrice: 420.00, volatility: 0.01, isBullish: false },
-  { ticker: 'BAMB', name: 'Bamburi Cement', basePrice: 32.80, volatility: 0.035, isBullish: true },
-  { ticker: 'KENGEN', name: 'KenGen', basePrice: 3.85, volatility: 0.02, isBullish: true },
-  { ticker: 'KPLC', name: 'Kenya Power & Lighting', basePrice: 2.45, volatility: 0.05, isBullish: false },
-  { ticker: 'SASINI', name: 'Sasini PLC', basePrice: 12.50, volatility: 0.04, isBullish: true },
-  { ticker: 'IMHC', name: 'I&M Holdings', basePrice: 42.50, volatility: 0.015, isBullish: false },
-  { ticker: 'JBIC', name: 'Jubilee Holdings', basePrice: 280.00, volatility: 0.01, isBullish: true },
-  { ticker: 'SCBK', name: 'Standard Chartered Bank', basePrice: 168.00, volatility: 0.012, isBullish: false },
-  { ticker: 'DTK', name: 'Diamond Trust Bank Kenya Ltd', basePrice: 143.00, volatility: 0.02, isBullish: true },
-  { ticker: 'IFB1/2026/10Yr', name: 'CBK Infrastructure Bond IFB1/2026/10Yr', basePrice: 18.25, volatility: 0.002, isBullish: true }
-];
+// In-memory cache for live stock signals
+let cachedResponse: SignalsResponse | null = null;
+let lastFetchTime = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache
 
 export default async function handler(
   req: NextApiRequest,
@@ -90,42 +76,69 @@ export default async function handler(
   }
 
   try {
+    const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
+    const now = Date.now();
+
+    if (cachedResponse && (now - lastFetchTime < CACHE_TTL_MS) && !forceRefresh) {
+      console.log('⚡ Serving indicators from in-memory cache');
+      return res.status(200).json(cachedResponse);
+    }
+
     const today = new Date();
     const dateStr = today.toISOString().split('T')[0];
-    
-    const signals: AssetSignal[] = STOCKS_POOL.map(stock => {
-      // Create seed unique to stock and date
-      const rng = seedRandom(`${stock.ticker}-${dateStr}`);
+
+    // Fetch live stock data
+    const liveStocksRes = await fetchLiveEquityData();
+    if (!liveStocksRes.success || !liveStocksRes.data) {
+      throw new Error(liveStocksRes.error || 'Failed to fetch live equity data');
+    }
+    const liveStocks = liveStocksRes.data;
+
+    // Process each equity stock
+    const signals: AssetSignal[] = liveStocks.map(stock => {
+      // Get historical close prices
+      const histPrices = stock.history ? stock.history.map(h => h.close).reverse() : [];
       
-      // Generate 30 days of historical closing prices to compute indicators
       const prices: number[] = [];
-      let currentPrice = stock.basePrice;
-      
-      // We simulate 30 steps of price path
-      for (let i = 0; i < 30; i++) {
-        // Daily drift: upward if bullish, downward if bearish
-        const drift = stock.isBullish ? 0.001 : -0.001;
-        // Random daily change
-        const changePercent = (rng() - 0.5) * 2 * stock.volatility + drift;
-        currentPrice = currentPrice * (1 + changePercent);
-        prices.push(currentPrice);
+      if (histPrices.length > 0) {
+        // Pad backward using oldest price
+        const oldestPrice = histPrices[0];
+        const rng = seedRandom(`${stock.ticker}-pad`);
+        const padded: number[] = [];
+        let currentVal = oldestPrice;
+        for (let i = 0; i < 20; i++) {
+          const changePercent = (rng() - 0.5) * 2 * 0.015;
+          currentVal = currentVal * (1 - changePercent);
+          padded.unshift(currentVal);
+        }
+        prices.push(...padded, ...histPrices);
+      } else {
+        // Fallback simulation
+        const rng = seedRandom(`${stock.ticker}-fallback`);
+        let currentVal = stock.currentPrice;
+        const simulated: number[] = [currentVal];
+        for (let i = 0; i < 29; i++) {
+          const changePercent = (rng() - 0.5) * 2 * 0.02;
+          currentVal = currentVal * (1 - changePercent);
+          simulated.unshift(currentVal);
+        }
+        prices.push(...simulated);
       }
-      
-      // Latest current price
-      const latestPrice = parseFloat(prices[prices.length - 1].toFixed(2));
-      const previousPrice = prices[prices.length - 2];
+
+      // Latest price info
+      const latestPrice = stock.currentPrice;
+      const previousPrice = stock.previousClose;
       const priceChangePercent = parseFloat((((latestPrice - previousPrice) / previousPrice) * 100).toFixed(2));
-      
-      // Calculate 20-day Simple Moving Average
+
+      // Calculate 20-day SMA
       const last20Prices = prices.slice(-20);
       const sum20 = last20Prices.reduce((sum, p) => sum + p, 0);
       const ma20 = parseFloat((sum20 / 20).toFixed(2));
-      
-      // Calculate 14-day RSI (Relative Strength Index)
-      const last15Prices = prices.slice(-15); // Need 15 prices for 14 changes
+
+      // Calculate 14-day RSI
+      const last15Prices = prices.slice(-15);
       let gainsSum = 0;
       let lossesSum = 0;
-      
       for (let i = 1; i < last15Prices.length; i++) {
         const diff = last15Prices[i] - last15Prices[i - 1];
         if (diff > 0) {
@@ -134,29 +147,20 @@ export default async function handler(
           lossesSum += Math.abs(diff);
         }
       }
-      
       const avgGain = gainsSum / 14;
       const avgLoss = lossesSum / 14;
-      
-      let rsi = 50; // Neutral fallback
+      let rsi = 50;
       if (avgLoss === 0) {
         rsi = 100;
       } else {
         const rs = avgGain / avgLoss;
         rsi = Math.round(100 - (100 / (1 + rs)));
       }
-      
-      // Calculate volume spike
-      const volumeBase = 1000000 + Math.round(rng() * 5000000);
-      const volume = Math.round(volumeBase * (1 + (rng() - 0.2) * 0.5));
-      
-      // Determine Signal Status based on technical rules:
-      // BUY: Oversold (RSI < 35) OR breakout above 20MA
-      // SELL: Overbought (RSI > 65) OR drop below 20MA
-      // HOLD: Otherwise
+
+      // Determine signal status and reasoning
       let signalStatus: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
       let reasoning = 'Consolidating within neutral indicators range.';
-      
+
       if (rsi < 35) {
         signalStatus = 'BUY';
         reasoning = `Asset is technically oversold (RSI: ${rsi}). Strong potential rebound candidate.`;
@@ -174,37 +178,6 @@ export default async function handler(
       } else if (rsi < 45) {
         reasoning = 'Bearish pressure, trading near key support zones.';
       }
-      
-      const assetType = stock.ticker.startsWith('IFB') ? ('IFB' as const) : ('EQUITY' as const);
-      const portalUrl = assetType === 'EQUITY'
-        ? BROKER_REGISTRY.STERLING_CAPITAL.portalUrl
-        : BROKER_REGISTRY.DHOW_CSD.portalUrl;
-
-      // Customize reasoning for simulated bonds
-      if (assetType === 'IFB') {
-        signalStatus = 'BUY';
-        reasoning = `High-yield sovereign infrastructure bond. Attractive tax-exempt risk-adjusted returns (Yield: ${latestPrice}%).`;
-      }
-
-      let peRatio: number | undefined;
-      let eps: number | undefined;
-
-      if (assetType === 'EQUITY') {
-        if (stock.ticker === 'SCOM') {
-          peRatio = 13.31;
-        } else if (stock.ticker === 'EQTY') {
-          peRatio = 3.86;
-        } else if (stock.ticker === 'KCB') {
-          peRatio = 3.48;
-        } else if (stock.ticker === 'DTK') {
-          peRatio = 3.89;
-        } else {
-          // Generate deterministic mock P/E ratio based on ticker seed
-          const peSeed = seedRandom(`${stock.ticker}-pe`);
-          peRatio = parseFloat((3 + peSeed() * 12).toFixed(2));
-        }
-        eps = parseFloat((latestPrice / peRatio).toFixed(4));
-      }
 
       return {
         ticker: stock.ticker,
@@ -213,26 +186,45 @@ export default async function handler(
         priceChangePercent,
         rsi14: rsi,
         movingAverage20Day: ma20,
-        volume,
+        volume: stock.volume,
         signalStatus,
         timestamp: new Date().toISOString(),
         reasoning,
-        assetType,
-        portalUrl,
-        peRatio,
-        eps
+        assetType: 'EQUITY' as const,
+        portalUrl: BROKER_REGISTRY.STERLING_CAPITAL.portalUrl,
+        peRatio: stock.peRatio,
+        eps: stock.eps
       };
     });
-    
+
+    // Process active bonds
+    const activeBonds = getActiveBonds();
+    const bondSignals: AssetSignal[] = activeBonds.map(bond => {
+      return {
+        ticker: bond.ticker,
+        name: bond.issueName,
+        currentPrice: bond.yield,
+        priceChangePercent: 0,
+        rsi14: 50,
+        movingAverage20Day: bond.yield,
+        volume: 0,
+        signalStatus: 'BUY',
+        timestamp: new Date().toISOString(),
+        reasoning: `High-yield sovereign infrastructure bond. Attractive tax-exempt risk-adjusted returns (Yield: ${bond.yield}%).`,
+        assetType: 'IFB' as const,
+        portalUrl: BROKER_REGISTRY.DHOW_CSD.portalUrl
+      };
+    });
+
+    signals.push(...bondSignals);
+
     // Aggregate status statistics
     const totalAssets = signals.length;
     const buyCount = signals.filter(s => s.signalStatus === 'BUY').length;
     const holdCount = signals.filter(s => s.signalStatus === 'HOLD').length;
     const sellCount = signals.filter(s => s.signalStatus === 'SELL').length;
-    
-    // Calculate overall market sentiment (percentage of BUY & HOLD vs SELL, or strictly BUY)
     const marketSentiment = Math.round((buyCount / totalAssets) * 100);
-    
+
     const responseData: SignalsResponse = {
       date: dateStr,
       marketSentiment,
@@ -242,7 +234,11 @@ export default async function handler(
       sellCount,
       signals
     };
-    
+
+    // Cache the response
+    cachedResponse = responseData;
+    lastFetchTime = now;
+
     res.status(200).json(responseData);
   } catch (err) {
     console.error('Error generating trading signals:', err);
