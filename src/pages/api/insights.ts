@@ -2,9 +2,20 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDailyInsights } from '../../lib/getDailyInsights';
 import type { DailyInsights, APIConfig, RedisConfig } from '../../lib/types';
 
+function getTodayDateNairobi(): string {
+    const now = new Date();
+    const nairobiTime = new Date(
+        now.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })
+    );
+    const year = nairobiTime.getFullYear();
+    const month = String(nairobiTime.getMonth() + 1).padStart(2, '0');
+    const day = String(nairobiTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 // Mock data for when API keys aren't configured - 35+ NSE stocks
-const MOCK_INSIGHTS: DailyInsights = {
-    date: new Date().toISOString().split('T')[0],
+const getMockInsights = (): DailyInsights => ({
+    date: getTodayDateNairobi(),
     marketSummary: {
         totalVolume: 125000000,
         advancers: 38,
@@ -487,7 +498,7 @@ const MOCK_INSIGHTS: DailyInsights = {
     ],
     cacheHit: false,
     dataFreshnessMinutes: 0,
-};
+});
 
 export default async function handler(
     req: NextApiRequest,
@@ -505,7 +516,7 @@ export default async function handler(
         if (!hasApiKeys) {
             // Return mock data if no API keys configured
             console.log('📊 Using mock data (API keys not configured)');
-            return res.status(200).json(MOCK_INSIGHTS);
+            return res.status(200).json(getMockInsights());
         }
 
         // API Configuration from environment variables
@@ -533,6 +544,6 @@ export default async function handler(
 
         // Fallback to mock data on error
         console.log('⚠️ API error, returning mock data as fallback');
-        res.status(200).json(MOCK_INSIGHTS);
+        res.status(200).json(getMockInsights());
     }
 }

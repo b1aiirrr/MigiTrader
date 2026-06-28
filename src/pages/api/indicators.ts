@@ -85,7 +85,13 @@ export default async function handler(
     }
 
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0];
+    const nairobiTime = new Date(
+        today.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' })
+    );
+    const year = nairobiTime.getFullYear();
+    const month = String(nairobiTime.getMonth() + 1).padStart(2, '0');
+    const day = String(nairobiTime.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
 
     // Fetch live stock data
     const liveStocksRes = await fetchLiveEquityData();
