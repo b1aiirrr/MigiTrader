@@ -25,9 +25,9 @@ const DEFAULT_EQUITY_WATCHLIST: readonly EquityWatchlistEntry[] = [
   { ticker: 'ABSA',   name: 'Absa Bank Kenya PLC',          yahooSymbol: 'absa' },
   { ticker: 'BAT',    name: 'BAT Kenya PLC',                yahooSymbol: 'bat'  },
   { ticker: 'BAMB',   name: 'Bamburi Cement PLC',           yahooSymbol: 'bamb' },
-  { ticker: 'KENGEN', name: 'KenGen Co. PLC',               yahooSymbol: 'kengen' },
+  { ticker: 'KEGN',   name: 'KenGen Co. PLC',               yahooSymbol: 'kengen' },
   { ticker: 'KPLC',   name: 'Kenya Power & Lighting Co.',   yahooSymbol: 'kplc' },
-  { ticker: 'SASINI', name: 'Sasini PLC',                   yahooSymbol: 'sasini' },
+  { ticker: 'SASN',   name: 'Sasini PLC',                   yahooSymbol: 'sasini' },
   { ticker: 'IMH',    name: 'I&M Group PLC',                yahooSymbol: 'imh'  },
   { ticker: 'JUB',    name: 'Jubilee Holdings Ltd',         yahooSymbol: 'jub'  },
   { ticker: 'SCBK',   name: 'Standard Chartered Bank PLC',  yahooSymbol: 'scbk' },
@@ -35,7 +35,7 @@ const DEFAULT_EQUITY_WATCHLIST: readonly EquityWatchlistEntry[] = [
 ] as const;
 
 /** Source URL for live NSE price list. */
-const AFX_NSE_URL = 'https://afx.kwayisi.org/nseke/';
+const AFX_NSE_URL = 'https://afx.kwayisi.org/nse/';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. BOND WATCHLIST — CBK Infrastructure Bonds (updated at each auction)
