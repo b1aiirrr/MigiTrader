@@ -205,7 +205,7 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
         'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
         'Accept': 'text/html',
       },
-      signal: AbortSignal.timeout(15_000), // 15s timeout
+      signal: AbortSignal.timeout(4_000), // 4s timeout for primary index
     });
 
     if (!response.ok) {
@@ -233,7 +233,7 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
               'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
               'Accept': 'text/html',
             },
-            signal: AbortSignal.timeout(10_000), // 10s timeout
+            signal: AbortSignal.timeout(2_000), // 2s timeout for detail pages to prevent Vercel 10s timeout
           });
 
           if (detailRes.ok) {
