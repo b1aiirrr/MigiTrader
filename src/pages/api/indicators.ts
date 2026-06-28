@@ -77,6 +77,8 @@ export default async function handler(
 
   try {
     const forceRefresh = req.query.refresh === 'true' || req.query.force === 'true';
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+
     const now = Date.now();
 
     if (cachedResponse && (now - lastFetchTime < CACHE_TTL_MS) && !forceRefresh) {

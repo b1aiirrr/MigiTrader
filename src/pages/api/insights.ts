@@ -1,5 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { getDailyInsights } from '../../lib/getDailyInsights';
+import { fetchLiveEquityData } from '../../lib/nse-market-data';
+import { generateStockPicks } from '../../lib/strategy-engine';
 import type { DailyInsights, APIConfig, RedisConfig } from '../../lib/types';
 
 function getTodayDateNairobi(): string {
@@ -511,12 +513,36 @@ export default async function handler(
 
     try {
         // Check if API keys are configured
+        // Disable caching so we always see fresh data
+        res.setHeader('Cache-Control', 'no-store, max-age=0');
+
         const hasApiKeys = process.env.NEXT_PUBLIC_NSE_API_URL && process.env.REDIS_URL;
 
         if (!hasApiKeys) {
-            // Return mock data if no API keys configured
-            console.log('📊 Using mock data (API keys not configured)');
-            return res.status(200).json(getMockInsights());
+            console.log('📊 Generating live insights directly (API keys not configured)');
+            const liveRes = await fetchLiveEquityData();
+            
+            if (liveRes.success && liveRes.data && liveRes.data.length > 0) {
+                const stocks = liveRes.data;
+                const totalVolume = stocks.reduce((sum, s) => sum + s.volume, 0);
+                const advancers = stocks.filter((s) => s.currentPrice > s.previousClose).length;
+                const decliners = stocks.filter((s) => s.currentPrice < s.previousClose).length;
+                const unchanged = stocks.length - advancers - decliners;
+                
+                const marketSummary = { totalVolume, advancers, decliners, unchanged };
+                const picks = generateStockPicks(stocks, [], 3);
+                
+                return res.status(200).json({
+                    date: getTodayDateNairobi(),
+                    marketSummary,
+                    picks,
+                    cacheHit: false,
+                    dataFreshnessMinutes: 0
+                });
+            } else {
+                console.log('⚠️ Failed to generate live insights, returning mock data as fallback');
+                return res.status(200).json(getMockInsights());
+            }
         }
 
         // API Configuration from environment variables
