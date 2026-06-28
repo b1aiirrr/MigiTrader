@@ -250,6 +250,6 @@ export default async function handler(
     res.status(200).json(responseData);
   } catch (err) {
     console.error('Error generating trading signals:', err);
-    res.status(500).json({ error: 'Failed to ingest and compute signal data', details: err instanceof Error ? err.message : String(err) });
+    res.status(500).json({ error: 'Failed to ingest and compute signal data' });
   }
 }
