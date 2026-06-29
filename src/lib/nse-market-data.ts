@@ -205,7 +205,7 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
         'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
         'Accept': 'text/html',
       },
-      signal: AbortSignal.timeout(4_000), // 4s timeout for primary index
+      signal: AbortSignal.timeout(8_000), // 8s timeout — must complete within Vercel's 10s limit
     });
 
     if (!response.ok) {
@@ -220,38 +220,10 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
     // Filter to only our watchlist tickers
     const matchedRows = allRows.filter((r) => watchlistTickers.has(r.ticker));
 
-    // Fetch detail pages in parallel to scrape P/E, EPS, and history
+    // Skip detail page fetches on Vercel to stay within 10s serverless limit.
+    // Detail pages provide P/E, EPS, and history which are nice-to-have.
+    // The main price table gives us everything essential (price, volume, change).
     const detailsMap = new Map<string, { pe?: number; eps?: number; history?: { close: number; volume: number }[] }>();
-    await Promise.all(
-      matchedRows.map(async (row) => {
-        const entry = watchlist.find((w) => w.ticker === row.ticker)!;
-        const detailUrl = `https://afx.kwayisi.org/nse/${entry.yahooSymbol}.html`;
-
-        try {
-          const detailRes = await fetch(detailUrl, {
-            headers: {
-              'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
-              'Accept': 'text/html',
-            },
-            signal: AbortSignal.timeout(2_000), // 2s timeout for detail pages to prevent Vercel 10s timeout
-          });
-
-          if (detailRes.ok) {
-            const detailHtml = await detailRes.text();
-            const peMatch = detailHtml.match(/Price\/Earning Ratio<td[^>]*>([\d,.-]+)/i);
-            const epsMatch = detailHtml.match(/Earnings Per Share<td[^>]*>([\d,.-]+)/i);
-
-            const pe = peMatch && !isNaN(parseFloat(peMatch[1])) ? parseFloat(peMatch[1]) : undefined;
-            const eps = epsMatch && !isNaN(parseFloat(epsMatch[1])) ? parseFloat(epsMatch[1]) : undefined;
-            const history = parseHistoricalTable(detailHtml);
-
-            detailsMap.set(row.ticker, { pe, eps, history });
-          }
-        } catch (err) {
-          console.warn(`⚠️ Failed to fetch detail page for ${row.ticker}:`, err instanceof Error ? err.message : err);
-        }
-      })
-    );
 
     const stocks: NSEStock[] = matchedRows.map((row) => {
       const entry = watchlist.find((w) => w.ticker === row.ticker)!;

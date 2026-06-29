@@ -95,12 +95,12 @@ export default async function handler(
     const day = String(nairobiTime.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    // Fetch live stock data
+    // Fetch live stock data — gracefully handle timeout/failure
     const liveStocksRes = await fetchLiveEquityData();
-    if (!liveStocksRes.success || !liveStocksRes.data) {
-      throw new Error(liveStocksRes.error || 'Failed to fetch live equity data');
+    const liveStocks = (liveStocksRes.success && liveStocksRes.data) ? liveStocksRes.data : [];
+    if (!liveStocksRes.success) {
+      console.warn('⚠️ Live equity fetch failed, continuing with bonds only:', liveStocksRes.error);
     }
-    const liveStocks = liveStocksRes.data;
 
     // Process each equity stock
     const signals: AssetSignal[] = liveStocks.map(stock => {

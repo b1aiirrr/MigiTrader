@@ -126,11 +126,8 @@ export function generateStockPicks(
             // Weighted total score
             const totalScore = momentumScore * 0.6 + dividendScore * 0.4;
 
-            // Filter: only stocks above 20-day MA and market cap > KES 5B
-            if (
-                stock.currentPrice < stock.movingAverage20Day ||
-                stock.marketCap < 5_000_000_000
-            ) {
+            // Filter: only stocks above 20-day MA qualify for picks
+            if (stock.currentPrice < stock.movingAverage20Day) {
                 return null;
             }
 
