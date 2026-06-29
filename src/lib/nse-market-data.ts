@@ -202,8 +202,9 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
   try {
     const response = await fetch(AFX_NSE_URL, {
       headers: {
-        'User-Agent': 'MigiTrader/2.0 (+https://migitrader.vercel.app)',
-        'Accept': 'text/html',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
       },
       signal: AbortSignal.timeout(8_000), // 8s timeout — must complete within Vercel's 10s limit
     });
