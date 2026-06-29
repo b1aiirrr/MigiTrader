@@ -78,48 +78,21 @@ export default async function handler(
   }
 
   try {
-    const ips = [
-      '23.95.122.3',
-      '217.28.130.154',
-      '107.172.131.112',
-      '107.189.29.171'
-    ];
-
-    const testIp = (ip: string): Promise<any> => {
-      return new Promise((resolve) => {
-        const start = Date.now();
-        const options = {
-          hostname: ip,
-          path: '/nse/',
-          method: 'GET',
-          headers: {
-            'Host': 'afx.kwayisi.org',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-          rejectUnauthorized: false,
-          timeout: 4000,
-        };
-
-        const req = https.request(options, (res) => {
-          resolve({ ip, status: res.statusCode, time: Date.now() - start });
-        });
-
-        req.on('error', (err) => {
-          resolve({ ip, error: err.message, time: Date.now() - start });
-        });
-
-        req.on('timeout', () => {
-          req.destroy();
-          resolve({ ip, error: 'Timeout', time: Date.now() - start });
-        });
-
-        req.end();
-      });
-    };
-
-    const results = await Promise.all(ips.map(testIp));
-    res.status(200).json({ diagnostic: true, results } as any);
+    const start = Date.now();
+    const res2 = await fetch('https://live.mystocks.co.ke/', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    const text = await res2.text();
+    res.status(200).json({
+      success: res2.ok,
+      status: res2.status,
+      time: Date.now() - start,
+      preview: text.substring(0, 300)
+    } as any);
   } catch (err) {
-    res.status(500).json({ error: String(err) });
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 }
