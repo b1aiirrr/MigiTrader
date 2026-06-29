@@ -33,8 +33,8 @@ export default function Home() {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="MigiTrader" />
         
+        <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="icon" type="image/png" href="/favicon.png" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="manifest" href="/manifest.json" />
       </Head>
 
@@ -88,9 +88,6 @@ export default function Home() {
                   }}
                 >
                   MigiTrader
-                </span>
-                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--accent-cyan)', fontWeight: '700', marginLeft: '6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                  PRO
                 </span>
               </div>
             </div>

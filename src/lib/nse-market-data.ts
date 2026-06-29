@@ -243,61 +243,74 @@ function fetchHtmlHttps(urlStr: string, timeoutMs: number): Promise<string> {
   });
 }
 
+function parseVolume(volStr: string): number {
+  volStr = volStr.trim().toUpperCase();
+  if (volStr.endsWith('M')) {
+    return parseFloat(volStr.slice(0, -1)) * 1_000_000;
+  }
+  if (volStr.endsWith('K')) {
+    return parseFloat(volStr.slice(0, -1)) * 1_000;
+  }
+  if (volStr.endsWith('B')) {
+    return parseFloat(volStr.slice(0, -1)) * 1_000_000_000;
+  }
+  return parseFloat(volStr.replace(/,/g, '')) || 0;
+}
+
 /**
- * Fetches live equity data from afx.kwayisi.org for all tickers in the
+ * Fetches live equity data from live.mystocks.co.ke for all tickers in the
  * effective watchlist. Returns an array of NSEStock objects.
  *
  * On failure, returns null with error details — never throws.
  */
 export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>> {
   const watchlist = getEffectiveWatchlist();
-  const watchlistTickers = new Set(watchlist.map((e) => e.ticker));
 
-  console.log(`📊 Fetching live NSE prices from afx.kwayisi.org for: ${[...watchlistTickers].join(', ')}`);
+  console.log(`📊 Fetching live NSE prices from live.mystocks.co.ke for: ${watchlist.map(e => e.ticker).join(', ')}`);
 
   try {
-    const html = await fetchHtmlHttps(AFX_NSE_URL, 20000);
-    const allRows = parseAfxHtml(html);
-
-    console.log(`📋 Parsed ${allRows.length} total tickers from NSE price list`);
-
-    // Filter to only our watchlist tickers
-    const matchedRows = allRows.filter((r) => watchlistTickers.has(r.ticker));
-
-    // Skip detail page fetches on Vercel to stay within 10s serverless limit.
-    // Detail pages provide P/E, EPS, and history which are nice-to-have.
-    // The main price table gives us everything essential (price, volume, change).
-    const detailsMap = new Map<string, { pe?: number; eps?: number; history?: { close: number; volume: number }[] }>();
-
-    const stocks: NSEStock[] = matchedRows.map((row) => {
-      const entry = watchlist.find((w) => w.ticker === row.ticker)!;
-      const previousClose = row.price - row.change;
-      const details = detailsMap.get(row.ticker);
-      
-      let averageVolume = row.volume;
-      if (details?.history && details.history.length > 0) {
-        const sumVol = details.history.reduce((sum, h) => sum + h.volume, 0);
-        averageVolume = Math.round(sumVol / details.history.length);
+    const scrapeStock = async (entry: EquityWatchlistEntry): Promise<NSEStock | null> => {
+      const url = `https://live.mystocks.co.ke/stock=${entry.yahooSymbol.toUpperCase()}`;
+      try {
+        const html = await fetchHtmlHttps(url, 4000); // 4s timeout per page
+        
+        const priceMatch = html.match(/<b id=rtPrice2>([\d,.]+)<\/b>/);
+        const prevMatch = html.match(/<b id=rtPrev>([\d,.]+)<\/b>/);
+        const volMatch = html.match(/<b id=rtVol>([^<]+)<\/b>/);
+        
+        if (priceMatch && prevMatch) {
+          const currentPrice = parseFloat(priceMatch[1].replace(/,/g, ''));
+          const previousClose = parseFloat(prevMatch[1].replace(/,/g, ''));
+          const volumeStr = volMatch ? volMatch[1] : '0';
+          const volume = parseVolume(volumeStr);
+          
+          return {
+            ticker: entry.ticker,
+            name: entry.name,
+            currentPrice,
+            previousClose: previousClose > 0 ? previousClose : currentPrice,
+            volume,
+            averageVolume: volume,
+            marketCap: 0,
+            high52Week: currentPrice,
+            low52Week: currentPrice,
+            movingAverage20Day: previousClose > 0 ? previousClose : currentPrice,
+            peRatio: undefined,
+            eps: undefined,
+            history: [] // Indicators will simulate history if empty
+          };
+        }
+      } catch (err: any) {
+        console.error(`❌ Error scraping ${entry.ticker}:`, err.message);
       }
+      return null;
+    };
 
-      return {
-        ticker: entry.ticker,
-        name: entry.name,
-        currentPrice: row.price,
-        previousClose: previousClose > 0 ? previousClose : row.price,
-        volume: row.volume,
-        averageVolume: averageVolume > 0 ? averageVolume : row.volume,
-        marketCap: 0, // Not available from this source
-        high52Week: row.price,
-        low52Week: row.price,
-        movingAverage20Day: previousClose > 0 ? previousClose : row.price, // Approximate with prev close
-        peRatio: details?.pe,
-        eps: details?.eps,
-        history: details?.history,
-      };
-    });
+    // Scrape all stocks in parallel
+    const results = await Promise.all(watchlist.map(scrapeStock));
+    const stocks = results.filter((s): s is NSEStock => s !== null);
 
-    console.log(`✅ Matched ${stocks.length}/${watchlist.length} watchlist tickers with live prices`);
+    console.log(`✅ Successfully parsed ${stocks.length}/${watchlist.length} watchlist tickers from live.mystocks.co.ke`);
 
     return {
       success: stocks.length > 0,
