@@ -256,7 +256,7 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
   console.log(`📊 Fetching live NSE prices from afx.kwayisi.org for: ${[...watchlistTickers].join(', ')}`);
 
   try {
-    const html = await fetchHtmlHttps(AFX_NSE_URL, 8000);
+    const html = await fetchHtmlHttps(AFX_NSE_URL, 20000);
     const allRows = parseAfxHtml(html);
 
     console.log(`📋 Parsed ${allRows.length} total tickers from NSE price list`);
