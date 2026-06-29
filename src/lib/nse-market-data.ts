@@ -1,4 +1,5 @@
 import dns from 'dns';
+import https from 'https';
 
 if (dns && typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
@@ -194,6 +195,55 @@ function getEffectiveWatchlist(): EquityWatchlistEntry[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Helper to fetch HTML using native Node https module forcing IPv4 (family: 4)
+ * to avoid Vercel edge container IPv6 connection timeouts.
+ */
+function fetchHtmlHttps(urlStr: string, timeoutMs: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(urlStr);
+    const options: https.RequestOptions = {
+      hostname: parsedUrl.hostname,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      family: 4, // Force IPv4
+      timeout: timeoutMs,
+    };
+
+    const req = https.request(options, (res) => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+        reject(new Error(`Status Code: ${res.statusCode}`));
+        return;
+      }
+
+      const data: any[] = [];
+      res.on('data', (chunk) => {
+        data.push(chunk);
+      });
+
+      res.on('end', () => {
+        resolve(Buffer.concat(data).toString('utf8'));
+      });
+    });
+
+    req.on('error', (err) => {
+      reject(err);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Request timeout'));
+    });
+
+    req.end();
+  });
+}
+
+/**
  * Fetches live equity data from afx.kwayisi.org for all tickers in the
  * effective watchlist. Returns an array of NSEStock objects.
  *
@@ -206,20 +256,7 @@ export async function fetchLiveEquityData(): Promise<DataFetchResult<NSEStock[]>
   console.log(`📊 Fetching live NSE prices from afx.kwayisi.org for: ${[...watchlistTickers].join(', ')}`);
 
   try {
-    const response = await fetch(AFX_NSE_URL, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      },
-      signal: AbortSignal.timeout(8_000), // 8s timeout — must complete within Vercel's 10s limit
-    });
-
-    if (!response.ok) {
-      throw new Error(`afx.kwayisi.org returned status ${response.status}`);
-    }
-
-    const html = await response.text();
+    const html = await fetchHtmlHttps(AFX_NSE_URL, 8000);
     const allRows = parseAfxHtml(html);
 
     console.log(`📋 Parsed ${allRows.length} total tickers from NSE price list`);
