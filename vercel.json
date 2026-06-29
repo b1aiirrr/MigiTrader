@@ -55,8 +55,16 @@
             "NODE_ENV": "production"
         }
     },
+    "functions": {
+        "src/pages/api/**/*.ts": {
+            "maxDuration": 10
+        },
+        "src/app/api/**/*.ts": {
+            "maxDuration": 10
+        }
+    },
     "regions": [
-        "iad1"
+        "cdg1"
     ],
     "framework": "nextjs"
 }
