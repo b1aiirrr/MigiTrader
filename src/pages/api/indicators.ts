@@ -27,6 +27,7 @@ export interface SignalsResponse {
   holdCount: number;
   sellCount: number;
   signals: AssetSignal[];
+  debug?: any;
 }
 
 interface BrokerEntry {
@@ -240,7 +241,8 @@ export default async function handler(
       buyCount,
       holdCount,
       sellCount,
-      signals
+      signals,
+      debug: liveStocksRes.error || null
     };
 
     // Cache the response
